@@ -1,0 +1,98 @@
+import mongoose from "mongoose";
+import { Comment } from "../models/comment.model.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+const getVideoComments = asyncHandler(async (req, res) => {
+  //TODO: get all comments for a video
+  const { videoId } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  if (!videoId) {
+    throw new ApiError(400, "Video id is required");
+  }
+  const filter = {};
+
+  // Optional filter by userId (if present)
+  if (videoId) {
+    filter.video = videoId; // Assuming 'owner' field in video schema refers to user
+  }
+
+  const total = await Comment.countDocuments(filter);
+  const comments = await Comment.find(filter).limit(parseInt(limit));
+
+  res.json(
+    new ApiResponse(200, {
+      total,
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+      comments,
+    })
+  );
+});
+
+const addComment = asyncHandler(async (req, res) => {
+  // TODO: add a comment to a video
+  // in a video schema i have section view how do i calculate total video view in a particalur user
+  const { content } = req.body;
+  const { videoId } = req.params;
+  const userId = req.user._id;
+
+  if (!content && !videoId) {
+    throw new ApiError(400, "Video id and content is required");
+  }
+
+  const comment = await Comment.create({
+    content,
+    video: videoId,
+    owner: userId,
+  });
+
+  if (!comment) {
+    throw new ApiError(400, "comment is not created");
+  }
+
+  res.json(new ApiResponse(200, comment, "comment created successfully"));
+});
+
+const updateComment = asyncHandler(async (req, res) => {
+  // TODO: update a comment
+  const { content } = req.body;
+  const { commentId } = req.params;
+
+  if (!content && !commentId) {
+    throw new ApiError(400, "comment id and content is required");
+  }
+
+  const comment = await Comment.findByIdAndUpdate(
+    commentId,
+    {
+      $set: {
+        content,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  if (!comment) {
+    throw new ApiError(400, "Something went wrong while updating the comment");
+  }
+
+  res.json(new ApiResponse(200, comment, "comment updated successfully"));
+});
+
+const deleteComment = asyncHandler(async (req, res) => {
+  // TODO: delete a comment
+  const { commentId } = req.params;
+  if (!commentId) {
+    throw new ApiError(400, "comment id is required");
+  }
+
+  await Comment.findByIdAndDelete(commentId);
+  res.json(new ApiResponse(200, {}, "comment deleted successfully"));
+});
+
+export { getVideoComments, addComment, updateComment, deleteComment };

@@ -6,6 +6,13 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
+const isProduction = process.env.NODE_ENV === "production";
+const options = {
+  httpOnly: true,
+  secure: isProduction, // only true in production
+  sameSite: "none",
+};
+
 const generateRefreshAndAccessToken = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -93,12 +100,6 @@ const registerUser = asyncHandler(async (req, res) => {
     user._id
   );
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-  };
-
   return res
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
@@ -140,12 +141,6 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-  };
-
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
@@ -175,12 +170,6 @@ const logOutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-
-  const options = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-  };
 
   return res
     .status(200)

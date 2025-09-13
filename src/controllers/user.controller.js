@@ -11,6 +11,7 @@ const options = {
   httpOnly: true,
   secure: isProduction, // only true in production
   sameSite: isProduction ? "none" : "lax",
+  maxAge: 10 * 24 * 60 * 60 * 1000,
 };
 
 const generateRefreshAndAccessToken = async (userId) => {

@@ -10,7 +10,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const options = {
   httpOnly: true,
   secure: isProduction, // only true in production
-  sameSite: "none",
+  sameSite: isProduction ? "none" : "lax",
 };
 
 const generateRefreshAndAccessToken = async (userId) => {

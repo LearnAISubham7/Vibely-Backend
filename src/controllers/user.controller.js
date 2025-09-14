@@ -9,8 +9,8 @@ import mongoose from "mongoose";
 const isProduction = process.env.NODE_ENV === "production";
 const options = {
   httpOnly: true,
-  secure: true, // only true in production
-  sameSite: "none",
+  secure: isProduction, // only true in production
+  sameSite: isProduction ? "none" : "lax",
   maxAge: 10 * 24 * 60 * 60 * 1000,
 };
 

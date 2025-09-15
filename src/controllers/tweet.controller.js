@@ -31,22 +31,35 @@ const createTweet = asyncHandler(async (req, res) => {
 
 const getUserTweets = asyncHandler(async (req, res) => {
   // TODO: get user tweets
-  const { userId } = req.query;
-  const filter = {};
-  if (userId) {
-    filter.owner = userId;
+  const { username } = req.params;
+
+  const user = await User.findOne({ username });
+  if (!user) {
+    throw new ApiError(404, "User not found");
   }
-  const total = await Tweet.countDocuments(filter);
-  const tweets = await Tweet.find(filter)
+
+  const tweets = await Tweet.find({ owner: user._id })
     .populate("owner", "fullName avater")
     .sort({ createdAt: -1 });
+  res.json(new ApiResponse(200, tweets, "User Tweets fetched successfully"));
+  // const { userId } = req.params;
+  // const filter = {};
+  // if (userId) {
+  //   filter.owner = userId;
+  // }
 
-  res.json(
-    new ApiResponse(200, {
-      total,
-      tweets,
-    })
-  );
+  // const total = await Tweet.countDocuments(filter);
+
+  // const tweets = await Tweet.find(filter)
+  //   .populate("owner", "fullName avater")
+  //   .sort({ createdAt: -1 });
+
+  // res.json(
+  //   new ApiResponse(200, {
+  //     total,
+  //     tweets,
+  //   })
+  // );
 });
 
 const updateTweet = asyncHandler(async (req, res) => {

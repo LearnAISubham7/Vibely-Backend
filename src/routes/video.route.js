@@ -3,6 +3,7 @@ import {
   deleteVideo,
   getAllVideos,
   getVideoById,
+  getVideosByUsername,
   publishAVideo,
   togglePublishStatus,
   updateVideo,
@@ -29,6 +30,7 @@ router
     ]),
     publishAVideo
   );
+router.get("/user/:username", getVideosByUsername);
 
 router
   .route("/:videoId")

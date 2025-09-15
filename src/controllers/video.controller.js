@@ -17,6 +17,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   } = req.query;
   //TODO: get all videos based on query, sort, pagination
   //chatGPT
+  // Build filter
   const filter = {};
 
   // Optional search query on title or description
@@ -25,11 +26,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
       { title: { $regex: query, $options: "i" } },
       { description: { $regex: query, $options: "i" } },
     ];
-  }
-
-  // Optional filter by userId (if present)
-  if (userId) {
-    filter.owner = userId; // Assuming 'owner' field in video schema refers to user
   }
 
   // Sorting
@@ -44,7 +40,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
   const videos = await Video.find(filter)
     .sort(sortOption)
     .skip(skip)
-    .limit(parseInt(limit));
+    .limit(parseInt(limit))
+    .populate("owner", "fullName avater username"); // optional: include owner details
 
   res.json(
     new ApiResponse(200, {
@@ -186,6 +183,18 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, video, "Publish Status toggle  successfully"));
 });
 
+const getVideosByUsername = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  const user = await User.findOne({ username });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const videos = await Video.find({ owner: user._id });
+  res.json(new ApiResponse(200, videos, "User videos fetched successfully"));
+});
+
 export {
   getAllVideos,
   publishAVideo,
@@ -193,4 +202,5 @@ export {
   updateVideo,
   deleteVideo,
   togglePublishStatus,
+  getVideosByUsername,
 };

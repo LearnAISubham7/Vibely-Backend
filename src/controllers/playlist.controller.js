@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { populate } from "dotenv";
+import { User } from "../models/user.model.js";
 
 const createPlaylist = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
@@ -27,17 +28,14 @@ const createPlaylist = asyncHandler(async (req, res) => {
 });
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
-  const { userId } = req.query;
-
   //TODO: get user playlists
-  const filter = {};
-  if (userId) {
-    filter.owner = userId; // Assuming 'owner' field in video schema refers to user
+  const { username } = req.params;
+  const user = await User.findOne({ username });
+  if (!user) {
+    throw new ApiError(404, "User not found");
   }
 
-  const total = await Playlist.countDocuments(filter);
-
-  const playlists = await Playlist.find(filter)
+  const playlists = await Playlist.find({ owner: user._id })
     .populate("owner", "fullName avater")
     .populate({
       path: "videos",
@@ -48,13 +46,35 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       },
     })
     .sort({ createdAt: -1 });
-
   res.json(
-    new ApiResponse(200, {
-      total,
-      playlists,
-    })
+    new ApiResponse(200, playlists, "User Playlist fetched successfully")
   );
+
+  // const filter = {};
+  // if (userId) {
+  //   filter.owner = userId; // Assuming 'owner' field in video schema refers to user
+  // }
+
+  // const total = await Playlist.countDocuments(filter);
+
+  // const playlists = await Playlist.find(filter)
+  //   .populate("owner", "fullName avater")
+  //   .populate({
+  //     path: "videos",
+  //     select: "title thumbnail description duration createdAt owner",
+  //     populate: {
+  //       path: "owner",
+  //       select: "fullName",
+  //     },
+  //   })
+  //   .sort({ createdAt: -1 });
+
+  // res.json(
+  //   new ApiResponse(200, {
+  //     total,
+  //     playlists,
+  //   })
+  // );
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {

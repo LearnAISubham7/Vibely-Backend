@@ -16,7 +16,7 @@ router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
 
 router.route("/").post(createPlaylist);
 
-router.route("/getUserAllPlaylists").get(getUserPlaylists);
+router.route("/getUserAllPlaylists/:username").get(getUserPlaylists);
 router.route("/add/:playlistId").patch(addVideoToPlaylist);
 router
   .route("/:playlistId")

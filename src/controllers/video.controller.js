@@ -123,9 +123,20 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Video Id is required");
   }
 
-  const { title, description, thumbnail } = req.body;
+  const { title, description } = req.body;
+  const thumbnailLocalPath = req.file?.path;
 
-  if ([title, description, thumbnail].some((val) => val?.trim() === "")) {
+  if (!thumbnailLocalPath) {
+    throw new ApiError("Avater file is required");
+  }
+
+  const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+
+  if (!thumbnail.url) {
+    throw new ApiError("Error while updating on thumbnail");
+  }
+
+  if ([title, description].some((val) => val?.trim() === "")) {
     throw new ApiError(400, "All Fields are required");
   }
 
@@ -135,7 +146,7 @@ const updateVideo = asyncHandler(async (req, res) => {
       $set: {
         title,
         description,
-        thumbnail,
+        thumbnail: thumbnail.url,
       },
     },
     {

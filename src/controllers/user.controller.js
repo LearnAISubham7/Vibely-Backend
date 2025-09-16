@@ -342,7 +342,6 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "coverImage updated Successfully"));
 });
 
-// have problen
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const username = req.params.username;
 
@@ -373,6 +372,14 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "videos", // 👈 join videos collection
+        localField: "_id",
+        foreignField: "owner", // 👈 adjust field if your model uses something else
+        as: "videos",
+      },
+    },
+    {
       $addFields: {
         subscriberCount: {
           $size: "$subscribers",
@@ -380,6 +387,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         channelsSubscribedTo: {
           $size: "$subscribedTo",
         },
+        videoCount: { $size: "$videos" }, // 👈 count videos here
         isSubscribed: {
           $cond: {
             if: {
@@ -397,6 +405,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         username: 1,
         subscriberCount: 1,
         channelsSubscribedTo: 1,
+        videoCount: 1, // 👈 expose in API response
         isSubscribed: 1,
         avater: 1,
         coverImage: 1,

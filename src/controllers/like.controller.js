@@ -16,11 +16,15 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   const existing = await Like.findOne({ likedBy: userId, video: videoId });
   if (existing) {
     await existing.deleteOne();
-    return res.json(new ApiResponse(200, {}, "Like removed"));
+    const likeCount = await Like.countDocuments({ video: videoId }); // count after unlike
+    return res.json(
+      new ApiResponse(200, { likeCount, isLiked: false }, "Like removed")
+    );
   }
   await Like.create({ likedBy: userId, video: videoId });
+  const likeCount = await Like.countDocuments({ video: videoId }); // count after like
 
-  res.json(new ApiResponse(200, {}, "video liked"));
+  res.json(new ApiResponse(200, { likeCount, isLiked: true }, "video liked"));
 });
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
@@ -63,7 +67,16 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   //TODO: get all liked videos
   const userId = req.user._id;
 
-  const videos = await Like.find({ likedBy: userId, video: { $exists: true } });
+  const videos = await Like.find({ likedBy: userId, video: { $exists: true } })
+    .populate({
+      path: "video",
+      select: "title thumbnail duration description owner createdAt",
+      populate: {
+        path: "owner",
+        select: "fullName username avater",
+      },
+    })
+    .sort({ createdAt: -1 });
   if (!videos) {
     throw new ApiError(400, "No Video is found");
   }

@@ -1,10 +1,12 @@
 import mongoose, { isValidObjectId } from "mongoose";
 import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
+import { Subscription } from "../models/subscription.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { Like } from "../models/like.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const {
@@ -102,14 +104,48 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   const video = await Video.findById(videoId).populate(
     "owner",
-    "fullName avater"
+    "fullName avater username"
   );
 
   if (!video) {
     throw new ApiError(400, "Video not found");
   }
+  // Count likes
+  const likeCount = await Like.countDocuments({ video: videoId });
 
-  res.json(new ApiResponse(200, video, "Video fetched successfully"));
+  // Check if current user already liked
+  let isLiked = false;
+  if (req.user?._id) {
+    isLiked = await Like.exists({ video: videoId, likedBy: req.user._id });
+  }
+
+  // Subscriber Count
+  const subscriberCount = await Subscription.countDocuments({
+    channel: video.owner._id,
+  });
+
+  // Is Subscribed
+  let isSubscribed = false;
+  if (req.user?._id) {
+    isSubscribed = await Subscription.exists({
+      channel: video.owner._id,
+      subscriber: req.user._id,
+    });
+  }
+
+  res.json(
+    new ApiResponse(
+      200,
+      {
+        ...video.toObject(),
+        likeCount,
+        isLiked,
+        isSubscribed,
+        subscriberCount,
+      },
+      "Video fetched successfully"
+    )
+  );
 });
 
 const updateVideo = asyncHandler(async (req, res) => {

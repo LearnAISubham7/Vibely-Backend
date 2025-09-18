@@ -110,6 +110,11 @@ const getVideoById = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(400, "Video not found");
   }
+
+  // ✅ Increment views
+  video.views += 1;
+  await video.save();
+
   // Count likes
   const likeCount = await Like.countDocuments({ video: videoId });
 

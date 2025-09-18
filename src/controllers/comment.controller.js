@@ -20,7 +20,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
   }
 
   const total = await Comment.countDocuments(filter);
-  const comments = await Comment.find(filter).limit(parseInt(limit));
+  const comments = await Comment.find(filter)
+    .limit(parseInt(limit))
+    .populate("owner", "fullName avater")
+    .sort({ createdAt: -1 });
 
   res.json(
     new ApiResponse(200, {
@@ -53,7 +56,10 @@ const addComment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "comment is not created");
   }
 
-  res.json(new ApiResponse(200, comment, "comment created successfully"));
+  const populatedComment = await comment.populate("owner", "fullName avater");
+  res.json(
+    new ApiResponse(200, populatedComment, "comment created successfully")
+  );
 });
 
 const updateComment = asyncHandler(async (req, res) => {
@@ -75,7 +81,7 @@ const updateComment = asyncHandler(async (req, res) => {
     {
       new: true,
     }
-  );
+  ).populate("owner", "fullName avater");
 
   if (!comment) {
     throw new ApiError(400, "Something went wrong while updating the comment");

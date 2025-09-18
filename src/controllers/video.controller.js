@@ -155,7 +155,6 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  //TODO: update video details like title, description, thumbnail
 
   if (!videoId) {
     throw new ApiError(400, "Video Id is required");
@@ -164,36 +163,42 @@ const updateVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
   const thumbnailLocalPath = req.file?.path;
 
-  if (!thumbnailLocalPath) {
-    throw new ApiError("Avater file is required");
+  // Prepare update object dynamically
+  const updateData = {};
+
+  if (title && title.trim() !== "") {
+    updateData.title = title;
   }
 
-  const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-
-  if (!thumbnail.url) {
-    throw new ApiError("Error while updating on thumbnail");
+  if (description && description.trim() !== "") {
+    updateData.description = description;
   }
 
-  if ([title, description].some((val) => val?.trim() === "")) {
-    throw new ApiError(400, "All Fields are required");
+  if (thumbnailLocalPath) {
+    const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+    if (!thumbnail.url) {
+      throw new ApiError("Error while updating thumbnail");
+    }
+    updateData.thumbnail = thumbnail.url;
+  }
+
+  // If nothing is being updated
+  if (Object.keys(updateData).length === 0) {
+    throw new ApiError(400, "No fields provided to update");
   }
 
   const video = await Video.findByIdAndUpdate(
     videoId,
-    {
-      $set: {
-        title,
-        description,
-        thumbnail: thumbnail.url,
-      },
-    },
-    {
-      new: true,
-    }
+    { $set: updateData },
+    { new: true }
   );
 
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
   return res.json(
-    new ApiResponse(200, video, "video details updated Successfully")
+    new ApiResponse(200, video, "Video details updated successfully")
   );
 });
 
@@ -232,7 +237,7 @@ const getVideosByUsername = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  const videos = await Video.find({ owner: user._id });
+  const videos = await Video.find({ owner: user._id }).sort({ createdAt: -1 });
   res.json(new ApiResponse(200, videos, "User videos fetched successfully"));
 });
 

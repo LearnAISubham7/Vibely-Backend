@@ -131,8 +131,9 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
       existing.type = type;
       await existing.save();
     }
+  } else {
+    await Like.create({ likedBy: userId, tweet: tweetId, type });
   }
-  await Like.create({ likedBy: userId, tweet: tweetId, type });
 
   // ✅ Always calculate fresh counts
   const likeCount = await Like.countDocuments({
@@ -161,8 +162,6 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
       "Reaction updated"
     )
   );
-
-  res.json(new ApiResponse(200, { isReacted: true, type }, "tweet liked"));
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {

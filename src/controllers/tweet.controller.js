@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { Like } from "../models/like.model.js";
 
 const createTweet = asyncHandler(async (req, res) => {
   //TODO: create tweet
@@ -32,6 +33,7 @@ const createTweet = asyncHandler(async (req, res) => {
 const getUserTweets = asyncHandler(async (req, res) => {
   // TODO: get user tweets
   const { username } = req.params;
+  const userId = req?.user?._id;
 
   const user = await User.findOne({ username });
   if (!user) {
@@ -41,25 +43,32 @@ const getUserTweets = asyncHandler(async (req, res) => {
   const tweets = await Tweet.find({ owner: user._id })
     .populate("owner", "fullName avater")
     .sort({ createdAt: -1 });
-  res.json(new ApiResponse(200, tweets, "User Tweets fetched successfully"));
-  // const { userId } = req.params;
-  // const filter = {};
-  // if (userId) {
-  //   filter.owner = userId;
-  // }
 
-  // const total = await Tweet.countDocuments(filter);
+  const enrichedTweets = await Promise.all(
+    tweets.map(async (tweet) => {
+      const [likeCount, dislikeCount, userReactionDoc] = await Promise.all([
+        Like.countDocuments({ tweet: tweet._id, type: "like" }),
+        Like.countDocuments({ tweet: tweet._id, type: "dislike" }),
+        userId ? Like.findOne({ tweet: tweet._id, likedBy: userId }) : null,
+      ]);
 
-  // const tweets = await Tweet.find(filter)
-  //   .populate("owner", "fullName avater")
-  //   .sort({ createdAt: -1 });
-
-  // res.json(
-  //   new ApiResponse(200, {
-  //     total,
-  //     tweets,
-  //   })
-  // );
+      return {
+        ...tweet.toObject(),
+        likeCount,
+        dislikeCount,
+        userReaction: userReactionDoc ? userReactionDoc.type : null,
+      };
+    })
+  );
+  res.json(
+    new ApiResponse(
+      200,
+      {
+        tweets: enrichedTweets,
+      },
+      "User Tweets fetched successfully"
+    )
+  );
 });
 
 const updateTweet = asyncHandler(async (req, res) => {

@@ -424,7 +424,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       new ApiResponse(200, channel[0], "user channel fetched successfully")
     );
 });
-// not tested
+
 const getWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
     {
@@ -432,12 +432,13 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         _id: new mongoose.Types.ObjectId(req.user._id),
       },
     },
+    { $unwind: "$watchHistory" }, // expand each history entry
     {
       $lookup: {
         from: "videos",
-        localField: "watchHistory",
+        localField: "watchHistory.videos", // ✅ match correct field
         foreignField: "_id",
-        as: "watchHistory",
+        as: "video",
         pipeline: [
           {
             $lookup: {
@@ -458,25 +459,33 @@ const getWatchHistory = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
-              owner: {
-                $first: "$owner",
-              },
+              owner: { $first: "$owner" },
             },
           },
         ],
+      },
+    },
+    {
+      $addFields: {
+        video: { $first: "$video" },
+        watchedAt: "$watchHistory.watchedAt", // keep timestamp
+      },
+    },
+    {
+      $sort: { watchedAt: -1 }, // newest first
+    },
+    {
+      $project: {
+        _id: 0,
+        video: 1,
+        watchedAt: 1,
       },
     },
   ]);
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        user[0].watchHistory,
-        "Watch History fetch successfully"
-      )
-    );
+    .json(new ApiResponse(200, user, "Watch History fetched successfully"));
 });
 
 export {

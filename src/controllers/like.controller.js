@@ -8,59 +8,115 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   //TODO: toggle like on video
   const userId = req.user._id;
+  const { type } = req.body; // "like" or "dislike"
 
   if (!videoId) {
     throw new ApiError(400, "Video id is required");
   }
+  if (!["like", "dislike"].includes(type)) {
+    throw new ApiError(400, "Invalid reaction type");
+  }
 
   const existing = await Like.findOne({ likedBy: userId, video: videoId });
-  if (existing) {
-    await existing.deleteOne();
-    const likeCount = await Like.countDocuments({ video: videoId }); // count after unlike
-    return res.json(
-      new ApiResponse(200, { likeCount, isLiked: false }, "Like removed")
-    );
-  }
-  await Like.create({ likedBy: userId, video: videoId });
-  const likeCount = await Like.countDocuments({ video: videoId }); // count after like
 
-  res.json(new ApiResponse(200, { likeCount, isLiked: true }, "video liked"));
+  if (existing) {
+    if (existing.type === type) {
+      // Same reaction → remove
+      await existing.deleteOne();
+    } else {
+      // Switch reaction (like <-> dislike)
+      existing.type = type;
+      await existing.save();
+    }
+  } else {
+    // No reaction → add new
+    await Like.create({ likedBy: userId, video: videoId, type });
+  }
+
+  // ✅ Always calculate fresh counts
+  const likeCount = await Like.countDocuments({ video: videoId, type: "like" });
+  const dislikeCount = await Like.countDocuments({
+    video: videoId,
+    type: "dislike",
+  });
+
+  // ✅ Get the user's current reaction (or null if removed)
+  const userReaction = await Like.findOne({ likedBy: userId, video: videoId });
+
+  res.json(
+    new ApiResponse(
+      200,
+      {
+        likeCount,
+        dislikeCount,
+        userReaction: userReaction ? userReaction.type : null,
+      },
+      "Reaction updated"
+    )
+  );
 });
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
   //TODO: toggle like on comment
+  const { type } = req.body;
   const userId = req.user._id;
   if (!commentId) {
     throw new ApiError(400, "Comment id is required");
   }
+  if (!["like", "dislike"].includes(type)) {
+    throw new ApiError(400, "Invalid reaction type");
+  }
 
   const existing = await Like.findOne({ likedBy: userId, comment: commentId });
   if (existing) {
-    await existing.deleteOne();
-    return res.json(new ApiResponse(200, {}, "Like removed"));
+    if (existing.type === type) {
+      await existing.deleteOne();
+      return res.json(
+        new ApiResponse(200, { isReacted: false, type }, `${type} removed`)
+      );
+    } else {
+      existing.type = type;
+      await existing.save();
+      return res.json(
+        new ApiResponse(200, { isReacted: true, type }, `Switched to ${type}`)
+      );
+    }
   }
-  await Like.create({ likedBy: userId, comment: commentId });
+  await Like.create({ likedBy: userId, comment: commentId, type });
 
-  res.json(new ApiResponse(200, {}, "comment liked"));
+  res.json(new ApiResponse(200, { isReacted: true, type }, "comment liked"));
 });
 
 const toggleTweetLike = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
   //TODO: toggle like on tweet
   const userId = req.user._id;
+  const { type } = req.body;
   if (!tweetId) {
     throw new ApiError(400, "Tweet id is required");
   }
-
+  if (!["like", "dislike"].includes(type)) {
+    throw new ApiError(400, "Invalid reaction type");
+  }
   const existing = await Like.findOne({ likedBy: userId, tweet: tweetId });
   if (existing) {
-    await existing.deleteOne();
-    return res.json(new ApiResponse(200, {}, "Like removed"));
+    if (existing.type === type) {
+      await existing.deleteOne();
+      return res.json(
+        new ApiResponse(200, { isReacted: false, type }, `${type} removed`)
+      );
+    } else {
+      existing.type = type;
+      await existing.save();
+      return res.json(
+        new ApiResponse(200, { isReacted: true, type }, `Switched to ${type}`)
+      );
+    }
   }
-  await Like.create({ likedBy: userId, tweet: tweetId });
+  await Like.create({ likedBy: userId, tweet: tweetId, type });
 
-  res.json(new ApiResponse(200, {}, "tweet liked"));
+  res.json(new ApiResponse(200, { isReacted: true, type }, "tweet liked"));
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {

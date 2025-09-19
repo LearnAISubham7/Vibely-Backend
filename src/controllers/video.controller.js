@@ -115,13 +115,43 @@ const getVideoById = asyncHandler(async (req, res) => {
   video.views += 1;
   await video.save();
 
-  // Count likes
-  const likeCount = await Like.countDocuments({ video: videoId });
-
-  // Check if current user already liked
-  let isLiked = false;
+  // ✅ Add to user’s watch history (if logged in)
   if (req.user?._id) {
-    isLiked = await Like.exists({ video: videoId, likedBy: req.user._id });
+    await User.findByIdAndUpdate(req.user._id, {
+      // Remove old history entry if it exists
+      $pull: { watchHistory: { videos: video._id } },
+    });
+
+    await User.findByIdAndUpdate(req.user._id, {
+      // Add latest entry
+      $push: {
+        watchHistory: {
+          videos: video._id,
+          watchedAt: new Date(),
+        },
+      },
+    });
+  }
+
+  // Count likes and dislikes
+  const likeCount = await Like.countDocuments({ video: videoId, type: "like" });
+  const dislikeCount = await Like.countDocuments({
+    video: videoId,
+    type: "dislike",
+  });
+
+  // ✅ Check if current user already reacted
+  let userReaction = null;
+
+  if (req.user?._id) {
+    const existing = await Like.findOne({
+      video: videoId,
+      likedBy: req.user._id,
+    }).select("type"); // only get the type field
+
+    if (existing) {
+      userReaction = existing.type; // "like" or "dislike"
+    }
   }
 
   // Subscriber Count
@@ -144,7 +174,8 @@ const getVideoById = asyncHandler(async (req, res) => {
       {
         ...video.toObject(),
         likeCount,
-        isLiked,
+        dislikeCount,
+        userReaction,
         isSubscribed,
         subscriberCount,
       },

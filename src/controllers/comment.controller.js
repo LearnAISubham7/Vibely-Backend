@@ -3,11 +3,13 @@ import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { Like } from "../models/like.model.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
   const { videoId } = req.params;
   const { page = 1, limit = 10 } = req.query;
+  const userId = req?.user?._id;
 
   if (!videoId) {
     throw new ApiError(400, "Video id is required");
@@ -22,15 +24,33 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const total = await Comment.countDocuments(filter);
   const comments = await Comment.find(filter)
     .limit(parseInt(limit))
+    .skip((page - 1) * limit)
     .populate("owner", "fullName avater")
     .sort({ createdAt: -1 });
+
+  const enrichedComments = await Promise.all(
+    comments.map(async (comment) => {
+      const [likeCount, dislikeCount, userReactionDoc] = await Promise.all([
+        Like.countDocuments({ comment: comment._id, type: "like" }),
+        Like.countDocuments({ comment: comment._id, type: "dislike" }),
+        userId ? Like.findOne({ comment: comment._id, likedBy: userId }) : null,
+      ]);
+
+      return {
+        ...comment.toObject(),
+        likeCount,
+        dislikeCount,
+        userReaction: userReactionDoc ? userReactionDoc.type : null,
+      };
+    })
+  );
 
   res.json(
     new ApiResponse(200, {
       total,
       limit: Number(limit),
       totalPages: Math.ceil(total / limit),
-      comments,
+      comments: enrichedComments,
     })
   );
 });

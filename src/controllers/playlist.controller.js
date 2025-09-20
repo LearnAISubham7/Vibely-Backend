@@ -49,32 +49,6 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   res.json(
     new ApiResponse(200, playlists, "User Playlist fetched successfully")
   );
-
-  // const filter = {};
-  // if (userId) {
-  //   filter.owner = userId; // Assuming 'owner' field in video schema refers to user
-  // }
-
-  // const total = await Playlist.countDocuments(filter);
-
-  // const playlists = await Playlist.find(filter)
-  //   .populate("owner", "fullName avater")
-  //   .populate({
-  //     path: "videos",
-  //     select: "title thumbnail description duration createdAt owner",
-  //     populate: {
-  //       path: "owner",
-  //       select: "fullName",
-  //     },
-  //   })
-  //   .sort({ createdAt: -1 });
-
-  // res.json(
-  //   new ApiResponse(200, {
-  //     total,
-  //     playlists,
-  //   })
-  // );
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {

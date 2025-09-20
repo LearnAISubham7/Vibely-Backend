@@ -7,53 +7,158 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getChannelStats = asyncHandler(async (req, res) => {
-  // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
-  const userId = req.user._id;
-  const filter = {};
-  if (userId) {
-    filter.owner = userId; // Assuming 'owner' field in video schema refers to user
-  }
+  const userId = new mongoose.Types.ObjectId(req.user._id);
 
-  const totalVideo = await Video.countDocuments(filter);
-  const totalLikes = await Like.countDocuments({ likedBy: userId });
-  const totalSubscribers = await Subscription.countDocuments({
-    channel: userId,
-  });
-  const result = await Video.aggregate([
+  // 🎯 Aggregate videos owned by this user
+  const stats = await Video.aggregate([
     {
-      $match: { owner: new mongoose.Types.ObjectId(userId) },
+      $match: {
+        owner: userId,
+      },
     },
+
+    {
+      $lookup: {
+        from: "likes", // collection name in Mongo
+        localField: "_id", // video._id
+        foreignField: "video", // likes.video
+        as: "videoLikes",
+      },
+    },
+
     {
       $group: {
         _id: null,
+        totalVideo: {
+          $sum: 1,
+        },
         totalViews: {
           $sum: "$views",
+        },
+        totalLikes: {
+          $sum: {
+            $size: {
+              $filter: {
+                input: "$videoLikes",
+                as: "like",
+                cond: {
+                  $eq: ["$$like.type", "like"],
+                },
+              },
+            },
+          },
+        },
+        totalDislikes: {
+          $sum: {
+            $size: {
+              $filter: {
+                input: "$videoLikes",
+                as: "like",
+                cond: {
+                  $eq: ["$$like.type", "dislike"],
+                },
+              },
+            },
+          },
         },
       },
     },
   ]);
 
-  const totalViews = result[0]?.totalViews || 0;
+  const totalSubscribers = await Subscription.countDocuments({
+    channel: userId,
+  });
+
+  const channelStats = {
+    totalVideo: stats[0]?.totalVideo || 0,
+    totalViews: stats[0]?.totalViews || 0,
+    totalLikes: stats[0]?.totalLikes || 0,
+    totalDislikes: stats[0]?.totalDislikes || 0,
+    totalSubscribers,
+  };
 
   res.json(
-    new ApiResponse(
-      200,
-      { totalLikes, totalSubscribers, totalVideo, totalViews },
-      "channel Stat"
-    )
+    new ApiResponse(200, channelStats, "Channel stats fetched successfully")
   );
 });
 
 const getChannelVideos = asyncHandler(async (req, res) => {
-  // TODO: Get all the videos uploaded by the channel
-  const userId = req.user._id;
-  const videos = await Video.find({ owner: userId });
+  const userId = new mongoose.Types.ObjectId(req.user._id);
 
-  if (!videos) {
-    throw new ApiError(400, "No Video is found");
+  const videos = await Video.aggregate([
+    { $match: { owner: userId } },
+
+    // Lookup likes
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "videoLikes",
+      },
+    },
+
+    // Lookup owner details
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
+    },
+    {
+      $unwind: "$ownerDetails",
+    },
+
+    // Add like/dislike counts
+    {
+      $addFields: {
+        likeCount: {
+          $size: {
+            $filter: {
+              input: "$videoLikes",
+              as: "like",
+              cond: { $eq: ["$$like.type", "like"] },
+            },
+          },
+        },
+        dislikeCount: {
+          $size: {
+            $filter: {
+              input: "$videoLikes",
+              as: "like",
+              cond: { $eq: ["$$like.type", "dislike"] },
+            },
+          },
+        },
+        owner: {
+          fullName: "$ownerDetails.fullName",
+          avater: "$ownerDetails.avater",
+        },
+      },
+    },
+
+    // Hide raw arrays
+    {
+      $project: {
+        videoLikes: 0,
+        ownerDetails: 0,
+      },
+    },
+  ]);
+
+  if (!videos || videos.length === 0) {
+    throw new ApiError(400, "No video found");
   }
 
-  res.json(new ApiResponse(200, videos, "channel Stat"));
+  res.json(
+    new ApiResponse(
+      200,
+      videos,
+      "Channel videos with like/dislike counts and owner details"
+    )
+  );
 });
 
 export { getChannelStats, getChannelVideos };

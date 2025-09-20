@@ -268,7 +268,9 @@ const getVideosByUsername = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  const videos = await Video.find({ owner: user._id }).sort({ createdAt: -1 });
+  const videos = await Video.find({ owner: user._id, isPublished: true }).sort({
+    createdAt: -1,
+  });
   res.json(new ApiResponse(200, videos, "User videos fetched successfully"));
 });
 
